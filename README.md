@@ -126,8 +126,8 @@ npm run tauri:build
 
 ```text
 src-tauri/target/release/rss-desktop-widget.exe
-src-tauri/target/release/bundle/nsis/RSS Desktop Widget_0.2.1_x64-setup.exe
-src-tauri/target/release/bundle/msi/RSS Desktop Widget_0.2.1_x64_en-US.msi
+src-tauri/target/release/bundle/nsis/RSS Desktop Widget_0.2.2_x64-setup.exe
+src-tauri/target/release/bundle/msi/RSS Desktop Widget_0.2.2_x64_en-US.msi
 ```
 
 通常给用户分发 `bundle/nsis/*-setup.exe` 即可；`target/release/rss-desktop-widget.exe` 可用于本机直接运行测试。
@@ -178,7 +178,7 @@ cd src-tauri
 cargo test live_aihot_feed_fetches -- --ignored --nocapture
 ```
 
-如果测试通过但已安装应用仍失败，通常是旧安装包或旧进程还在运行。退出托盘中的旧进程后，重新安装最新的 `RSS Desktop Widget_0.2.1_x64-setup.exe`。
+如果测试通过但已安装应用仍失败，通常是旧安装包或旧进程还在运行。退出托盘中的旧进程后，重新安装最新的 `RSS Desktop Widget_0.2.2_x64-setup.exe`。
 
 ## 发布 Release
 
@@ -187,8 +187,8 @@ cargo test live_aihot_feed_fetches -- --ignored --nocapture
 ```powershell
 git checkout main
 git pull
-git tag v0.2.1
-git push RSS-Desktop v0.2.1
+git tag v0.2.2
+git push RSS-Desktop v0.2.2
 ```
 
 推送 `v*.*.*` tag 后，GitHub Actions 会运行 `.github/workflows/release.yml`，自动完成：
