@@ -1,4 +1,4 @@
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::db;
@@ -33,6 +33,7 @@ pub fn save_settings(
     if let Err(error) = windowing::reposition_main_from_state(&app) {
         eprintln!("failed to reposition main window: {error}");
     }
+    let _ = app.emit("settings_updated", &saved);
 
     Ok(saved)
 }
@@ -85,6 +86,16 @@ pub fn delete_feed(state: State<'_, AppState>, id: i64) -> CommandResult<()> {
 }
 
 #[tauri::command]
+pub fn clear_cached_items(app: AppHandle, state: State<'_, AppState>) -> CommandResult<usize> {
+    let deleted = {
+        let conn = state.conn().map_err(to_command_error)?;
+        db::clear_items(&conn).map_err(to_command_error)?
+    };
+    let _ = app.emit("items_updated", false);
+    Ok(deleted)
+}
+
+#[tauri::command]
 pub async fn test_feed(
     state: State<'_, AppState>,
     url: String,
@@ -133,7 +144,7 @@ pub async fn refresh_all(
         .map_err(to_command_error)?;
 
     if summaries.iter().any(|summary| summary.inserted > 0) {
-        let _ = app.emit("items_updated", ());
+        let _ = app.emit("items_updated", true);
     }
 
     Ok(summaries)
@@ -150,7 +161,7 @@ pub async fn refresh_feed(
         .map_err(to_command_error)?;
 
     if summary.inserted > 0 {
-        let _ = app.emit("items_updated", ());
+        let _ = app.emit("items_updated", true);
     }
 
     Ok(summary)
@@ -185,6 +196,14 @@ pub async fn open_settings_window(app: AppHandle) -> CommandResult<()> {
 #[tauri::command]
 pub fn reposition_main_window(app: AppHandle) -> CommandResult<()> {
     windowing::reposition_main_from_state(&app).map_err(to_command_error)
+}
+
+#[tauri::command]
+pub fn hide_main_window(app: AppHandle) -> CommandResult<()> {
+    if let Some(window) = app.get_webview_window("main") {
+        window.hide().map_err(to_command_error)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]

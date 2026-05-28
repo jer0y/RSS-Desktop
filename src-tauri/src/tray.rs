@@ -75,7 +75,7 @@ fn refresh_all(app: &AppHandle) {
         match refresh::refresh_all_enabled(state.inner()).await {
             Ok(summaries) => {
                 if summaries.iter().any(|summary| summary.inserted > 0) {
-                    let _ = app.emit("items_updated", ());
+                    let _ = app.emit("items_updated", true);
                 }
             }
             Err(error) => {

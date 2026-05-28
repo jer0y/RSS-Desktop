@@ -79,6 +79,8 @@ pub fn get_settings(conn: &Connection) -> Result<AppSettings> {
     Ok(normalize_settings(AppSettings {
         window_width: get_i64_setting(conn, "window_width")?.unwrap_or(default.window_width),
         window_height: get_i64_setting(conn, "window_height")?.unwrap_or(default.window_height),
+        window_x: get_i64_setting(conn, "window_x")?,
+        window_y: get_i64_setting(conn, "window_y")?,
         opacity: get_i64_setting(conn, "opacity")?.unwrap_or(default.opacity),
         margin_top: get_i64_setting(conn, "margin_top")?.unwrap_or(default.margin_top),
         margin_right: get_i64_setting(conn, "margin_right")?.unwrap_or(default.margin_right),
@@ -89,10 +91,18 @@ pub fn get_settings(conn: &Connection) -> Result<AppSettings> {
 }
 
 pub fn save_settings(conn: &mut Connection, settings: AppSettings) -> Result<AppSettings> {
+    let current = get_settings(conn).unwrap_or_default();
     let settings = normalize_settings(settings);
+    let settings = AppSettings {
+        window_x: settings.window_x.or(current.window_x),
+        window_y: settings.window_y.or(current.window_y),
+        ..settings
+    };
     let tx = conn.transaction()?;
     set_setting(&tx, "window_width", settings.window_width)?;
     set_setting(&tx, "window_height", settings.window_height)?;
+    set_optional_setting(&tx, "window_x", settings.window_x)?;
+    set_optional_setting(&tx, "window_y", settings.window_y)?;
     set_setting(&tx, "opacity", settings.opacity)?;
     set_setting(&tx, "margin_top", settings.margin_top)?;
     set_setting(&tx, "margin_right", settings.margin_right)?;
@@ -205,6 +215,15 @@ pub fn delete_feed(conn: &Connection, id: i64) -> Result<()> {
     Ok(())
 }
 
+pub fn clear_items(conn: &Connection) -> Result<usize> {
+    let deleted = conn
+        .execute("DELETE FROM items", [])
+        .context("failed to clear cached items")?;
+    conn.execute("DELETE FROM refresh_logs", [])
+        .context("failed to clear refresh logs")?;
+    Ok(deleted)
+}
+
 pub fn list_items(conn: &Connection, query: ItemQuery) -> Result<Vec<Item>> {
     let limit = query.limit.clamp(1, 200);
     let offset = query.offset.max(0);
@@ -258,6 +277,18 @@ pub fn set_item_favorite(conn: &Connection, id: i64, favorite: bool) -> Result<(
         params![bool_to_i64(favorite), now_rfc3339(), id],
     )
     .context("failed to update favorite state")?;
+    Ok(())
+}
+
+pub fn save_window_position(conn: &Connection, x: i64, y: i64) -> Result<()> {
+    set_setting(conn, "window_x", x)?;
+    set_setting(conn, "window_y", y)?;
+    Ok(())
+}
+
+pub fn save_window_size(conn: &Connection, width: i64, height: i64) -> Result<()> {
+    set_setting(conn, "window_width", width.clamp(360, 900))?;
+    set_setting(conn, "window_height", height.clamp(420, 1100))?;
     Ok(())
 }
 
@@ -441,6 +472,15 @@ fn set_setting(conn: &Connection, key: &str, value: i64) -> Result<()> {
     Ok(())
 }
 
+fn set_optional_setting(conn: &Connection, key: &str, value: Option<i64>) -> Result<()> {
+    if let Some(value) = value {
+        set_setting(conn, key, value)?;
+    } else {
+        conn.execute("DELETE FROM settings WHERE key = ?1", [key])?;
+    }
+    Ok(())
+}
+
 fn set_setting_if_missing(conn: &Connection, key: &str, value: i64) -> Result<()> {
     conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES (?1, ?2)",
@@ -512,6 +552,8 @@ mod tests {
             AppSettings {
                 window_width: 100,
                 window_height: 2000,
+                window_x: Some(44),
+                window_y: Some(55),
                 opacity: 10,
                 margin_top: -1,
                 margin_right: 500,
@@ -523,6 +565,8 @@ mod tests {
 
         assert_eq!(saved.window_width, 360);
         assert_eq!(saved.window_height, 1100);
+        assert_eq!(saved.window_x, Some(44));
+        assert_eq!(saved.window_y, Some(55));
         assert_eq!(saved.opacity, 45);
         assert_eq!(saved.margin_top, 0);
         assert_eq!(saved.margin_right, 200);
@@ -555,6 +599,73 @@ mod tests {
 
         assert_eq!(insert_parsed_items(&mut conn, feed.id, &[item.clone()]).unwrap(), 1);
         assert_eq!(insert_parsed_items(&mut conn, feed.id, &[item]).unwrap(), 0);
+    }
+
+    #[test]
+    fn clear_items_removes_cached_feed_entries() {
+        let mut conn = connection();
+        let feed = create_feed(
+            &conn,
+            FeedInput {
+                title: Some("Feed".to_string()),
+                url: "https://example.com/rss.xml".to_string(),
+                refresh_interval_minutes: Some(15),
+            },
+            "Feed".to_string(),
+        )
+        .unwrap();
+        let item = ParsedItem {
+            guid: "one".to_string(),
+            title: "Title".to_string(),
+            link: Some("https://example.com/1".to_string()),
+            author: None,
+            published_at: None,
+            content_html: None,
+            content_text: "Body".to_string(),
+        };
+        insert_parsed_items(&mut conn, feed.id, &[item]).unwrap();
+        add_refresh_log(&conn, Some(feed.id), "success", Some("cached")).unwrap();
+
+        assert_eq!(clear_items(&conn).unwrap(), 1);
+        assert!(list_items(
+            &conn,
+            ItemQuery {
+                mode: "all".to_string(),
+                search: None,
+                feed_id: None,
+                limit: 20,
+                offset: 0,
+            },
+        )
+        .unwrap()
+        .is_empty());
+        assert!(list_refresh_logs(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn save_settings_preserves_existing_window_position_when_omitted() {
+        let mut conn = connection();
+        save_window_position(&conn, 88, 99).unwrap();
+
+        let saved = save_settings(
+            &mut conn,
+            AppSettings {
+                window_width: 520,
+                window_height: 720,
+                window_x: None,
+                window_y: None,
+                opacity: 70,
+                margin_top: 18,
+                margin_right: 18,
+                global_refresh_interval_minutes: 15,
+                max_items: 80,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(saved.window_x, Some(88));
+        assert_eq!(saved.window_y, Some(99));
+        assert_eq!(saved.opacity, 70);
     }
 
     #[test]

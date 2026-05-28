@@ -34,6 +34,8 @@ pub struct Item {
 pub struct AppSettings {
     pub window_width: i64,
     pub window_height: i64,
+    pub window_x: Option<i64>,
+    pub window_y: Option<i64>,
     pub opacity: i64,
     pub margin_top: i64,
     pub margin_right: i64,
@@ -46,6 +48,8 @@ impl Default for AppSettings {
         Self {
             window_width: 520,
             window_height: 720,
+            window_x: None,
+            window_y: None,
             opacity: 86,
             margin_top: 18,
             margin_right: 18,
@@ -127,6 +131,8 @@ pub fn normalize_settings(settings: AppSettings) -> AppSettings {
     AppSettings {
         window_width: clamp(settings.window_width, 360, 900),
         window_height: clamp(settings.window_height, 420, 1100),
+        window_x: settings.window_x,
+        window_y: settings.window_y,
         opacity: clamp(settings.opacity, 45, 100),
         margin_top: clamp(settings.margin_top, 0, 200),
         margin_right: clamp(settings.margin_right, 0, 200),

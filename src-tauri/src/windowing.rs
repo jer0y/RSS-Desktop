@@ -1,6 +1,7 @@
 use anyhow::Result;
 use tauri::{
     LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+    WindowEvent,
 };
 
 use crate::db;
@@ -13,21 +14,28 @@ pub fn position_main_window(window: &WebviewWindow, settings: &AppSettings) -> R
         settings.window_height as f64,
     ))?;
 
-    let monitor = window
-        .current_monitor()?
-        .or_else(|| window.primary_monitor().ok().flatten());
-    let Some(monitor) = monitor else {
-        window.show()?;
-        return Ok(());
-    };
+    let (x, y) = match (settings.window_x, settings.window_y) {
+        (Some(x), Some(y)) => (x as i32, y as i32),
+        _ => {
+            let monitor = window
+                .current_monitor()?
+                .or_else(|| window.primary_monitor().ok().flatten());
+            let Some(monitor) = monitor else {
+                window.show()?;
+                return Ok(());
+            };
 
-    let scale = window.scale_factor()?;
-    let work_area = monitor.work_area();
-    let width = (settings.window_width as f64 * scale).round() as i32;
-    let margin_top = (settings.margin_top as f64 * scale).round() as i32;
-    let margin_right = (settings.margin_right as f64 * scale).round() as i32;
-    let x = work_area.position.x + work_area.size.width as i32 - width - margin_right;
-    let y = work_area.position.y + margin_top;
+            let scale = window.scale_factor()?;
+            let work_area = monitor.work_area();
+            let width = (settings.window_width as f64 * scale).round() as i32;
+            let margin_top = (settings.margin_top as f64 * scale).round() as i32;
+            let margin_right = (settings.margin_right as f64 * scale).round() as i32;
+            (
+                work_area.position.x + work_area.size.width as i32 - width - margin_right,
+                work_area.position.y + margin_top,
+            )
+        }
+    };
 
     window.set_position(PhysicalPosition::new(x, y))?;
     window.show()?;
@@ -68,4 +76,35 @@ pub fn reposition_main_from_state(app: &tauri::AppHandle) -> Result<()> {
     };
 
     position_main_window(&window, &settings)
+}
+
+pub fn bind_main_window_events(window: &WebviewWindow) {
+    let app = window.app_handle().clone();
+    window.on_window_event(move |event| match event {
+        WindowEvent::Moved(position) => {
+            let state = app.state::<AppState>();
+            if let Ok(conn) = state.conn() {
+                let _ = db::save_window_position(&conn, position.x as i64, position.y as i64);
+            };
+        }
+        WindowEvent::Resized(size) => {
+            let scale = app
+                .get_webview_window("main")
+                .and_then(|window| window.scale_factor().ok())
+                .unwrap_or(1.0);
+            let width = (size.width as f64 / scale).round() as i64;
+            let height = (size.height as f64 / scale).round() as i64;
+            let state = app.state::<AppState>();
+            if let Ok(conn) = state.conn() {
+                let _ = db::save_window_size(&conn, width, height);
+            };
+        }
+        WindowEvent::CloseRequested { api, .. } => {
+            api.prevent_close();
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.hide();
+            }
+        }
+        _ => {}
+    });
 }

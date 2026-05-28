@@ -14,6 +14,8 @@ import type { AppSettings, Feed, FeedUpdate, RefreshLog } from "../lib/types";
 const defaultSettings: AppSettings = {
   window_width: 520,
   window_height: 720,
+  window_x: null,
+  window_y: null,
   opacity: 86,
   margin_top: 18,
   margin_right: 18,
@@ -152,6 +154,21 @@ export function SettingsWindow() {
     }
   };
 
+  const clearCache = async () => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const deleted = await api.clearCachedItems();
+      await load();
+      setMessage(`已清除 ${deleted} 条 RSS 缓存`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <main className="settings-shell">
       <header className="settings-header">
@@ -159,10 +176,16 @@ export function SettingsWindow() {
           <span className="eyebrow">RSS Desktop</span>
           <h1>设置</h1>
         </div>
-        <button className="primary-button" onClick={refreshAll} disabled={busy || feeds.length === 0}>
-          <RefreshCw size={16} className={busy ? "spin" : ""} />
-          刷新全部
-        </button>
+        <div className="button-row">
+          <button className="secondary-button" onClick={clearCache} disabled={busy}>
+            <Trash2 size={16} />
+            清除缓存
+          </button>
+          <button className="primary-button" onClick={refreshAll} disabled={busy || feeds.length === 0}>
+            <RefreshCw size={16} className={busy ? "spin" : ""} />
+            刷新全部
+          </button>
+        </div>
       </header>
 
       {(message || error) && (
@@ -197,7 +220,6 @@ export function SettingsWindow() {
               onChange={(event) => setSettings({ ...settings, opacity: Number(event.target.value) })}
             />
           </label>
-          <p className="panel-note">启用订阅源 {enabledFeeds} 个，总订阅源 {feeds.length} 个。</p>
         </div>
 
         <form className="settings-panel" onSubmit={addFeed}>
@@ -239,7 +261,7 @@ export function SettingsWindow() {
       <section className="settings-panel feed-panel">
         <div className="panel-heading">
           <h2>订阅源</h2>
-          <span>{feeds.length} 个</span>
+          <span>启用 {enabledFeeds} 个 / 总计 {feeds.length} 个</span>
         </div>
         <div className="feed-list">
           {feeds.map((feed) => (
@@ -351,12 +373,13 @@ function FeedEditor({
   return (
     <div className={`feed-editor ${!draft.enabled ? "disabled" : ""}`}>
       <div className="feed-main">
-        <label className="toggle-line">
+        <label className="switch-field">
           <input
             type="checkbox"
             checked={draft.enabled}
             onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
           />
+          <span className="switch" aria-hidden="true" />
           <span>{draft.enabled ? "启用" : "停用"}</span>
         </label>
         <label className="text-field">
@@ -410,6 +433,8 @@ function normalizeSettings(settings: AppSettings): AppSettings {
   return {
     window_width: clamp(settings.window_width, 360, 900),
     window_height: clamp(settings.window_height, 420, 1100),
+    window_x: settings.window_x ?? null,
+    window_y: settings.window_y ?? null,
     opacity: clamp(settings.opacity, 45, 100),
     margin_top: clamp(settings.margin_top, 0, 200),
     margin_right: clamp(settings.margin_right, 0, 200),

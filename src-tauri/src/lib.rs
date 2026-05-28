@@ -32,6 +32,7 @@ pub fn run() {
             commands::create_feed,
             commands::update_feed,
             commands::delete_feed,
+            commands::clear_cached_items,
             commands::test_feed,
             commands::list_items,
             commands::set_item_read,
@@ -42,6 +43,7 @@ pub fn run() {
             commands::open_external_url,
             commands::open_settings_window,
             commands::reposition_main_window,
+            commands::hide_main_window,
             commands::list_refresh_logs
         ])
         .run(tauri::generate_context!())
@@ -63,6 +65,7 @@ fn setup_app(app: &mut tauri::App) -> Result<()> {
             db::get_settings(&conn)?
         };
         windowing::position_main_window(&window, &settings)?;
+        windowing::bind_main_window_events(&window);
     }
 
     tray::setup_tray(app)?;

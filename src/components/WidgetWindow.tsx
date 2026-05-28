@@ -1,13 +1,13 @@
 import {
-  Check,
   ChevronDown,
   ExternalLink,
   Maximize2,
   RefreshCw,
   Settings,
-  Star,
+  X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 import { api } from "../lib/api";
 import type { AppSettings, Feed, Item, ItemQuery } from "../lib/types";
 
@@ -21,6 +21,8 @@ export function WidgetWindow() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [hasNewItems, setHasNewItems] = useState(false);
+  const pulseTimer = useRef<number | null>(null);
 
   const limit = settings?.max_items ?? 80;
 
@@ -69,6 +71,34 @@ export function WidgetWindow() {
   }, [loadFeeds]);
 
   useEffect(() => {
+    const pulse = () => {
+      setHasNewItems(true);
+      if (pulseTimer.current !== null) {
+        window.clearTimeout(pulseTimer.current);
+      }
+      pulseTimer.current = window.setTimeout(() => setHasNewItems(false), 1800);
+    };
+
+    const unlistenItems = api.onItemsUpdated((hasInserted) => {
+      if (hasInserted) {
+        pulse();
+      }
+      void loadFeeds();
+      setOffset(0);
+      void loadItems(false);
+    });
+    const unlistenSettings = api.onSettingsUpdated((nextSettings) => setSettings(nextSettings));
+
+    return () => {
+      if (pulseTimer.current !== null) {
+        window.clearTimeout(pulseTimer.current);
+      }
+      void unlistenItems.then((unlisten) => unlisten());
+      void unlistenSettings.then((unlisten) => unlisten());
+    };
+  }, [loadFeeds, loadItems]);
+
+  useEffect(() => {
     setOffset(0);
   }, [feedId]);
 
@@ -90,29 +120,20 @@ export function WidgetWindow() {
     setBusy(true);
     setError(null);
     try {
-      await api.refreshAll();
+      const summaries = await api.refreshAll();
+      if (summaries.some((summary) => summary.inserted > 0)) {
+        setHasNewItems(true);
+        if (pulseTimer.current !== null) {
+          window.clearTimeout(pulseTimer.current);
+        }
+        pulseTimer.current = window.setTimeout(() => setHasNewItems(false), 1800);
+      }
       await Promise.all([loadFeeds(), loadItems(false)]);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
-  };
-
-  const toggleRead = async (item: Item) => {
-    await api.setItemRead(item.id, !item.read);
-    setItems((current) =>
-      current.map((next) => (next.id === item.id ? { ...next, read: !next.read } : next)),
-    );
-  };
-
-  const toggleFavorite = async (item: Item) => {
-    await api.setItemFavorite(item.id, !item.favorite);
-    setItems((current) =>
-      current.map((next) =>
-        next.id === item.id ? { ...next, favorite: !next.favorite } : next,
-      ),
-    );
   };
 
   const toggleExpanded = (id: number) => {
@@ -127,13 +148,24 @@ export function WidgetWindow() {
     });
   };
 
+  const startWindowDrag = (event: MouseEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, select, input, textarea, a, label, [data-no-window-drag]")) {
+      return;
+    }
+    event.preventDefault();
+    void api.startWindowDrag();
+  };
+
   return (
     <main
-      className="widget-shell"
-      style={{ "--panel-opacity": `${(settings?.opacity ?? 86) / 100}` } as React.CSSProperties}
+      className={`widget-shell ${hasNewItems ? "has-new-items" : ""}`}
+      style={{ "--panel-opacity": `${(settings?.opacity ?? 86) / 100}` } as CSSProperties}
     >
-      <header className="widget-header compact" data-tauri-drag-region>
-        <label className="select-wrap compact-select">
+      <div className="window-drag-band" onMouseDown={startWindowDrag} />
+      <header className="widget-header compact" onMouseDown={startWindowDrag}>
+        <label className="select-wrap compact-select" data-no-window-drag>
           <select
             value={feedId ?? ""}
             onChange={(event) => setFeedId(event.target.value ? Number(event.target.value) : null)}
@@ -147,7 +179,8 @@ export function WidgetWindow() {
           </select>
           <ChevronDown size={14} />
         </label>
-        <div className="header-actions">
+        <div className="drag-strip" />
+        <div className="header-actions" data-no-window-drag>
           <button className="icon-button" title="刷新" onClick={refresh} disabled={busy}>
             <RefreshCw size={16} className={busy ? "spin" : ""} />
           </button>
@@ -156,6 +189,9 @@ export function WidgetWindow() {
           </button>
           <button className="icon-button" title="设置" onClick={() => void api.openSettings()}>
             <Settings size={16} />
+          </button>
+          <button className="icon-button" title="隐藏到后台" onClick={() => void api.hideMain()}>
+            <X size={16} />
           </button>
         </div>
       </header>
@@ -172,22 +208,16 @@ export function WidgetWindow() {
               item={item}
               expanded={expanded.has(item.id)}
               onToggleExpanded={() => toggleExpanded(item.id)}
-              onToggleRead={() => void toggleRead(item)}
-              onToggleFavorite={() => void toggleFavorite(item)}
               onOpen={() => void api.openItem(item.id)}
             />
           ))
         )}
-      </section>
-
-      <footer className="widget-footer">
-        <span>{busy ? "同步中" : `已加载 ${items.length} 条`}</span>
         {hasMore && (
-          <button onClick={() => setOffset((current) => current + limit)} disabled={busy}>
+          <button className="timeline-load-more" onClick={() => setOffset((current) => current + limit)} disabled={busy}>
             加载更多
           </button>
         )}
-      </footer>
+      </section>
     </main>
   );
 }
@@ -196,15 +226,11 @@ function ArticleRow({
   item,
   expanded,
   onToggleExpanded,
-  onToggleRead,
-  onToggleFavorite,
   onOpen,
 }: {
   item: Item;
   expanded: boolean;
   onToggleExpanded: () => void;
-  onToggleRead: () => void;
-  onToggleFavorite: () => void;
   onOpen: () => void;
 }) {
   const date = item.published_at ? new Date(item.published_at) : null;
@@ -217,7 +243,7 @@ function ArticleRow({
   const hasLongText = item.content_text.length > 180;
 
   return (
-    <article className={`article-row ${item.read ? "is-read" : ""}`}>
+    <article className="article-row">
       <div className="time-column">
         <span className="date-label">{dateLabel}</span>
         <strong>{time}</strong>
@@ -229,19 +255,11 @@ function ArticleRow({
             <span>{item.feed_title}</span>
             {item.author && <span>@{item.author}</span>}
           </div>
-          <div className="icon-row">
-            <button className="icon-button small" title={item.favorite ? "取消收藏" : "收藏"} onClick={onToggleFavorite}>
-              <Star size={14} fill={item.favorite ? "currentColor" : "none"} />
+          {item.link && (
+            <button className="icon-button small" title="打开原文" onClick={onOpen}>
+              <ExternalLink size={14} />
             </button>
-            <button className="icon-button small" title={item.read ? "标为未读" : "标为已读"} onClick={onToggleRead}>
-              <Check size={14} />
-            </button>
-            {item.link && (
-              <button className="icon-button small" title="打开原文" onClick={onOpen}>
-                <ExternalLink size={14} />
-              </button>
-            )}
-          </div>
+          )}
         </div>
         <h2>{item.title}</h2>
         <p className={expanded ? "content expanded" : "content"}>

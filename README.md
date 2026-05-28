@@ -2,12 +2,19 @@
 
 一个面向 Windows 11 的半透明 RSS 桌面小组件。应用固定显示在桌面右上角，使用 Tauri v2 + React + Rust + SQLite 实现，支持自定义 RSS 订阅源、后台刷新、本地持久化和系统托盘菜单。
 
+## 截图
+
+![主窗口](docs/images/widget-window.png)
+
+![设置窗口](docs/images/settings-window.png)
+
 ## 功能特性
 
-- Windows 右上角常驻小组件：无边框、半透明、置顶、跳过任务栏。
+- Windows 右上角常驻小组件：无边框、圆角矩形、半透明、置顶、跳过任务栏。
 - 紧凑 RSS 时间轴：只保留订阅源筛选和右上角操作按钮，尽量把空间留给内容。
+- 窗口位置记忆：支持拖拽顶部移动窗口，拖拽或缩放后自动保存位置和尺寸。
 - 自定义订阅源：添加、测试、启用/停用、删除 RSS/Atom/JSON Feed。
-- 本地 SQLite：订阅源、条目、设置和刷新日志全部保存在本机。
+- 本地 SQLite：订阅源、条目、设置和刷新日志全部保存在本机，设置页支持清除缓存。
 - 系统托盘：右键菜单支持显示主窗口、设置、刷新全部、退出；左键点击显示主窗口。
 - 低资源策略：Rust 后台拉取、增量去重、顺序刷新、限制单个 feed 大小为 2MB。
 - 正文策略：只使用 feed 内自带的 `content` / `description`，不额外抓取原文网页。
@@ -119,8 +126,8 @@ npm run tauri:build
 
 ```text
 src-tauri/target/release/rss-desktop-widget.exe
-src-tauri/target/release/bundle/nsis/RSS Desktop Widget_0.1.1_x64-setup.exe
-src-tauri/target/release/bundle/msi/RSS Desktop Widget_0.1.1_x64_en-US.msi
+src-tauri/target/release/bundle/nsis/RSS Desktop Widget_0.2.0_x64-setup.exe
+src-tauri/target/release/bundle/msi/RSS Desktop Widget_0.2.0_x64_en-US.msi
 ```
 
 通常给用户分发 `bundle/nsis/*-setup.exe` 即可；`target/release/rss-desktop-widget.exe` 可用于本机直接运行测试。
@@ -171,7 +178,7 @@ cd src-tauri
 cargo test live_aihot_feed_fetches -- --ignored --nocapture
 ```
 
-如果测试通过但已安装应用仍失败，通常是旧安装包或旧进程还在运行。退出托盘中的旧进程后，重新安装最新的 `RSS Desktop Widget_0.1.1_x64-setup.exe`。
+如果测试通过但已安装应用仍失败，通常是旧安装包或旧进程还在运行。退出托盘中的旧进程后，重新安装最新的 `RSS Desktop Widget_0.2.0_x64-setup.exe`。
 
 ## 发布 Release
 
@@ -180,8 +187,8 @@ cargo test live_aihot_feed_fetches -- --ignored --nocapture
 ```powershell
 git checkout main
 git pull
-git tag v0.1.1
-git push RSS-Desktop v0.1.1
+git tag v0.2.0
+git push RSS-Desktop v0.2.0
 ```
 
 推送 `v*.*.*` tag 后，GitHub Actions 会运行 `.github/workflows/release.yml`，自动完成：

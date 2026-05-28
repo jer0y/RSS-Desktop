@@ -31,6 +31,8 @@ export interface Item {
 export interface AppSettings {
   window_width: number;
   window_height: number;
+  window_x?: number | null;
+  window_y?: number | null;
   opacity: number;
   margin_top: number;
   margin_right: number;

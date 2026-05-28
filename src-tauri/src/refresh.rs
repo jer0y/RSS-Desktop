@@ -53,7 +53,7 @@ pub async fn refresh_due_feeds(app: &AppHandle) -> Result<()> {
     }
 
     if had_insert {
-        let _ = app.emit("items_updated", ());
+        let _ = app.emit("items_updated", true);
     }
 
     Ok(())

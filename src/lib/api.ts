@@ -1,4 +1,6 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type {
   AppSettings,
   Feed,
@@ -34,6 +36,7 @@ export const api = {
   createFeed: (input: FeedInput) => invoke<Feed>("create_feed", { input }),
   updateFeed: (feed: FeedUpdate) => invoke<Feed>("update_feed", { feed }),
   deleteFeed: (id: number) => invoke<void>("delete_feed", { id }),
+  clearCachedItems: () => invoke<number>("clear_cached_items"),
   testFeed: (url: string) => invoke<FeedTestResult>("test_feed", { url }),
   listItems: (query: ItemQuery) => invoke<Item[]>("list_items", { query }),
   setItemRead: (id: number, read: boolean) => invoke<void>("set_item_read", { id, read }),
@@ -45,12 +48,27 @@ export const api = {
   openExternal: (url: string) => invoke<void>("open_external_url", { url }),
   openSettings: () => invoke<void>("open_settings_window"),
   repositionMain: () => invoke<void>("reposition_main_window"),
+  hideMain: () => invoke<void>("hide_main_window"),
+  startWindowDrag: () => {
+    if (!isTauri) return Promise.resolve();
+    return getCurrentWindow().startDragging();
+  },
   listRefreshLogs: () => invoke<RefreshLog[]>("list_refresh_logs"),
+  onItemsUpdated: (handler: (hasNewItems: boolean) => void) => {
+    if (!isTauri) return Promise.resolve(() => undefined);
+    return listen<boolean>("items_updated", (event) => handler(Boolean(event.payload)));
+  },
+  onSettingsUpdated: (handler: (settings: AppSettings) => void) => {
+    if (!isTauri) return Promise.resolve(() => undefined);
+    return listen<AppSettings>("settings_updated", (event) => handler(event.payload));
+  },
 };
 
 const mockSettings: AppSettings = {
   window_width: 520,
   window_height: 720,
+  window_x: null,
+  window_y: null,
   opacity: 86,
   margin_top: 18,
   margin_right: 18,
@@ -175,6 +193,11 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       mockItems = mockItems.filter((item) => item.feed_id !== id);
       return undefined as T;
     }
+    case "clear_cached_items": {
+      const deleted = mockItems.length;
+      mockItems = [];
+      return deleted as T;
+    }
     case "test_feed":
       return { title: "测试订阅源", url: args?.url as string, item_count: 12 } as T;
     case "list_items": {
@@ -221,6 +244,8 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       } as T;
     case "list_refresh_logs":
       return [] as T;
+    case "hide_main_window":
+      return undefined as T;
     default:
       return undefined as T;
   }
