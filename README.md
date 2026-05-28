@@ -147,7 +147,7 @@ cd src-tauri
 cargo test
 ```
 
-真实网络测试 `https://abc.com/feed.xml`：
+真实网络测试 `https://aihot.virxact.com/feed.xml`：
 
 ```powershell
 cd src-tauri
@@ -172,6 +172,27 @@ cargo test live_aihot_feed_fetches -- --ignored --nocapture
 ```
 
 如果测试通过但已安装应用仍失败，通常是旧安装包或旧进程还在运行。退出托盘中的旧进程后，重新安装最新的 `RSS Desktop Widget_0.1.1_x64-setup.exe`。
+
+## 发布 Release
+
+普通提交和普通 push 只会运行 CI，不会发布安装包。发布安装包需要显式推送版本 tag：
+
+```powershell
+git checkout main
+git pull
+git tag v0.1.1
+git push RSS-Desktop v0.1.1
+```
+
+推送 `v*.*.*` tag 后，GitHub Actions 会运行 `.github/workflows/release.yml`，自动完成：
+
+- 安装 Node 和 Rust 环境。
+- 运行前端构建、Rust 检查和 Rust 测试。
+- 执行 `npm run tauri:build`。
+- 在 GitHub Releases 中创建对应版本。
+- 上传 NSIS 安装包、MSI 安装包、独立 exe 和 portable zip。
+
+建议只在准备正式发布时推送 tag，例如 `v1.0.0`、`v2.0.0`。日常提交不要打 tag，就不会触发发布。
 
 ### 托盘图标不显示
 
