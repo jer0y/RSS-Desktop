@@ -28,6 +28,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
             commands::save_settings,
+            commands::set_main_window_opacity,
             commands::list_feeds,
             commands::create_feed,
             commands::update_feed,

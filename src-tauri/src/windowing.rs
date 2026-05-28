@@ -13,6 +13,7 @@ pub fn position_main_window(window: &WebviewWindow, settings: &AppSettings) -> R
         settings.window_width as f64,
         settings.window_height as f64,
     ))?;
+    apply_window_opacity(window, settings.opacity)?;
 
     let (x, y) = match (settings.window_x, settings.window_y) {
         (Some(x), Some(y)) => (x as i32, y as i32),
@@ -39,6 +40,13 @@ pub fn position_main_window(window: &WebviewWindow, settings: &AppSettings) -> R
 
     window.set_position(PhysicalPosition::new(x, y))?;
     window.show()?;
+    Ok(())
+}
+
+pub fn apply_main_window_opacity(app: &tauri::AppHandle, opacity: i64) -> Result<()> {
+    if let Some(window) = app.get_webview_window("main") {
+        apply_window_opacity(&window, opacity)?;
+    }
     Ok(())
 }
 
@@ -107,4 +115,29 @@ pub fn bind_main_window_events(window: &WebviewWindow) {
         }
         _ => {}
     });
+}
+
+#[cfg(windows)]
+fn apply_window_opacity(window: &WebviewWindow, opacity: i64) -> Result<()> {
+    use windows::Win32::Foundation::COLORREF;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongPtrW, SetLayeredWindowAttributes, SetWindowLongPtrW, GWL_EXSTYLE, LWA_ALPHA,
+        WS_EX_LAYERED,
+    };
+
+    let hwnd = window.hwnd()?;
+    let alpha = ((opacity.clamp(45, 100) as f64 / 100.0) * 255.0).round() as u8;
+
+    unsafe {
+        let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style | WS_EX_LAYERED.0 as isize);
+        SetLayeredWindowAttributes(hwnd, COLORREF(0), alpha, LWA_ALPHA)?;
+    }
+
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn apply_window_opacity(_window: &WebviewWindow, _opacity: i64) -> Result<()> {
+    Ok(())
 }

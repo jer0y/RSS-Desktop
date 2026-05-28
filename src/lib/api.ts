@@ -32,6 +32,7 @@ async function invoke<T>(command: string, args?: Record<string, unknown>): Promi
 export const api = {
   getSettings: () => invoke<AppSettings>("get_settings"),
   saveSettings: (settings: AppSettings) => invoke<AppSettings>("save_settings", { settings }),
+  setMainWindowOpacity: (opacity: number) => invoke<void>("set_main_window_opacity", { opacity }),
   listFeeds: () => invoke<Feed[]>("list_feeds"),
   createFeed: (input: FeedInput) => invoke<Feed>("create_feed", { input }),
   updateFeed: (feed: FeedUpdate) => invoke<Feed>("update_feed", { feed }),
@@ -162,6 +163,9 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
         Object.assign(mockSettings, args.settings);
       }
       return structuredClone(mockSettings) as T;
+    case "set_main_window_opacity":
+      mockSettings.opacity = args?.opacity as number;
+      return undefined as T;
     case "list_feeds":
       return structuredClone(mockFeeds) as T;
     case "create_feed": {

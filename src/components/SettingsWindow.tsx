@@ -154,6 +154,11 @@ export function SettingsWindow() {
     }
   };
 
+  const updateOpacity = (opacity: number) => {
+    setSettings((current) => ({ ...current, opacity }));
+    void api.setMainWindowOpacity(opacity);
+  };
+
   const clearCache = async () => {
     setBusy(true);
     setError(null);
@@ -217,7 +222,7 @@ export function SettingsWindow() {
               min="45"
               max="100"
               value={settings.opacity}
-              onChange={(event) => setSettings({ ...settings, opacity: Number(event.target.value) })}
+              onChange={(event) => updateOpacity(Number(event.target.value))}
             />
           </label>
         </div>

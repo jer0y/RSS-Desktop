@@ -39,6 +39,11 @@ pub fn save_settings(
 }
 
 #[tauri::command]
+pub fn set_main_window_opacity(app: AppHandle, opacity: i64) -> CommandResult<()> {
+    windowing::apply_main_window_opacity(&app, opacity).map_err(to_command_error)
+}
+
+#[tauri::command]
 pub fn list_feeds(state: State<'_, AppState>) -> CommandResult<Vec<Feed>> {
     let conn = state.conn().map_err(to_command_error)?;
     db::list_feeds(&conn).map_err(to_command_error)
