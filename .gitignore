@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Frontend build output
+dist/
+
+# Tauri/Rust build output
+src-tauri/target/
+src-tauri/gen/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local databases and runtime state
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local screenshots and previews
+*-preview*.png
+widget-preview*.png
+settings-preview*.png

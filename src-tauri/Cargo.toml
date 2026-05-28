@@ -1,0 +1,33 @@
+[package]
+name = "rss-desktop-widget"
+version = "0.1.1"
+description = "A transparent RSS desktop widget for Windows 11"
+authors = ["RSS Desktop"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "rss_desktop_widget_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+feed-rs = "2.3"
+html2text = "0.17"
+reqwest = { version = "0.12", default-features = false, features = ["brotli", "deflate", "gzip", "native-tls"] }
+rusqlite = { version = "0.39", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+tokio = { version = "1", features = ["time"] }
+url = "2"
+
+[dev-dependencies]
+tempfile = "3"
