@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "RSS Desktop Widget",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "identifier": "com.local.rssdesktop.widget",
   "build": {
     "beforeDevCommand": "npm run dev",
