@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "RSS Desktop Widget",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "identifier": "com.local.rssdesktop.widget",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -20,7 +20,8 @@
         "minHeight": 420,
         "decorations": false,
         "transparent": true,
-        "alwaysOnTop": true,
+        "alwaysOnBottom": true,
+        "alwaysOnTop": false,
         "skipTaskbar": true,
         "resizable": true,
         "shadow": false,

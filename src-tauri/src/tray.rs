@@ -63,7 +63,6 @@ pub fn setup_tray(app: &mut App) -> Result<()> {
 fn show_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
-        let _ = window.set_focus();
         let _ = windowing::reposition_main_from_state(app);
     }
 }

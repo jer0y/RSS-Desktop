@@ -40,12 +40,20 @@ pub fn position_main_window(window: &WebviewWindow, settings: &AppSettings) -> R
 
     window.set_position(PhysicalPosition::new(x, y))?;
     window.show()?;
+    keep_window_on_bottom(window)?;
     Ok(())
 }
 
 pub fn apply_main_window_opacity(app: &tauri::AppHandle, opacity: i64) -> Result<()> {
     if let Some(window) = app.get_webview_window("main") {
         apply_window_opacity(&window, opacity)?;
+    }
+    Ok(())
+}
+
+pub fn keep_main_window_on_bottom(app: &tauri::AppHandle) -> Result<()> {
+    if let Some(window) = app.get_webview_window("main") {
+        keep_window_on_bottom(&window)?;
     }
     Ok(())
 }
@@ -89,6 +97,11 @@ pub fn reposition_main_from_state(app: &tauri::AppHandle) -> Result<()> {
 pub fn bind_main_window_events(window: &WebviewWindow) {
     let app = window.app_handle().clone();
     window.on_window_event(move |event| match event {
+        WindowEvent::Focused(focused) => {
+            if *focused {
+                let _ = keep_main_window_on_bottom(&app);
+            }
+        }
         WindowEvent::Moved(position) => {
             let state = app.state::<AppState>();
             if let Ok(conn) = state.conn() {
@@ -115,6 +128,38 @@ pub fn bind_main_window_events(window: &WebviewWindow) {
         }
         _ => {}
     });
+}
+
+fn keep_window_on_bottom(window: &WebviewWindow) -> Result<()> {
+    window.set_always_on_top(false)?;
+    window.set_always_on_bottom(true)?;
+    send_window_to_bottom(window)
+}
+
+#[cfg(windows)]
+fn send_window_to_bottom(window: &WebviewWindow) -> Result<()> {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, HWND_BOTTOM, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOOWNERZORDER,
+    };
+
+    let hwnd = window.hwnd()?;
+    unsafe {
+        SetWindowPos(
+            hwnd,
+            Some(HWND_BOTTOM),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER,
+        )?;
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn send_window_to_bottom(_window: &WebviewWindow) -> Result<()> {
+    Ok(())
 }
 
 #[cfg(windows)]
