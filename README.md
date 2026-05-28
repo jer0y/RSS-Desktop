@@ -4,9 +4,7 @@
 
 ## 截图
 
-![主窗口](docs/images/widget-window.png)
-
-![设置窗口](docs/images/settings-window.png)
+![窗口截图](docs/images/Screenshot.jpg)
 
 ## 功能特性
 
