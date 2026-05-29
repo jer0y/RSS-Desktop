@@ -26,6 +26,7 @@ export function WidgetWindow() {
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(false);
   const timelineRef = useRef<HTMLElement | null>(null);
   const pulseTimer = useRef<number | null>(null);
+  const autoScrollDirectionRef = useRef<1 | -1>(1);
 
   const limit = settings?.max_items ?? 80;
   const autoScrollPixelsPerSecond = ((settings?.auto_scroll_speed_percent ?? 100) / 100) * 72;
@@ -117,8 +118,13 @@ export function WidgetWindow() {
     let frame = 0;
     let last = window.performance.now();
     let scrollPosition = timelineRef.current?.scrollTop ?? 0;
+    autoScrollDirectionRef.current =
+      timelineRef.current && timelineRef.current.scrollTop >= timelineRef.current.scrollHeight - timelineRef.current.clientHeight - 1
+        ? -1
+        : autoScrollDirectionRef.current;
 
-    const step = (now: number) => {
+    const step = () => {
+      const now = window.performance.now();
       const element = timelineRef.current;
       if (!element) {
         frame = window.requestAnimationFrame(step);
@@ -127,17 +133,26 @@ export function WidgetWindow() {
 
       const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
       if (maxScroll <= 1) {
-        setAutoScrollEnabled(false);
+        frame = window.requestAnimationFrame(step);
         return;
       }
 
-      if (element.scrollTop >= maxScroll - 1) {
-        setAutoScrollEnabled(false);
-        return;
+      if (scrollPosition >= maxScroll - 1) {
+        scrollPosition = maxScroll;
+        autoScrollDirectionRef.current = -1;
+      } else if (scrollPosition <= 1) {
+        scrollPosition = 0;
+        autoScrollDirectionRef.current = 1;
       }
 
       const elapsed = Math.min(64, now - last) / 1000;
-      scrollPosition = Math.min(maxScroll, scrollPosition + autoScrollPixelsPerSecond * elapsed);
+      scrollPosition = Math.min(
+        maxScroll,
+        Math.max(
+          0,
+          scrollPosition + autoScrollPixelsPerSecond * elapsed * autoScrollDirectionRef.current,
+        ),
+      );
       element.scrollTop = scrollPosition;
 
       last = now;
@@ -194,8 +209,9 @@ export function WidgetWindow() {
     setAutoScrollEnabled((current) => {
       const next = !current;
       const element = timelineRef.current;
-      if (next && element && element.scrollTop >= element.scrollHeight - element.clientHeight - 1) {
-        element.scrollTop = 0;
+      if (next && element) {
+        autoScrollDirectionRef.current =
+          element.scrollTop >= element.scrollHeight - element.clientHeight - 1 ? -1 : 1;
       }
       return next;
     });
