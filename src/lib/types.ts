@@ -38,6 +38,7 @@ export interface AppSettings {
   margin_right: number;
   global_refresh_interval_minutes: number;
   max_items: number;
+  auto_scroll_speed_percent: number;
 }
 
 export interface ItemQuery {

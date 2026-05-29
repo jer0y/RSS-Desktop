@@ -169,6 +169,12 @@ p {
   background: rgba(37, 213, 239, 0.12);
 }
 
+.icon-button.active {
+  color: #eaffff;
+  border-color: rgba(36, 230, 176, 0.44);
+  background: rgba(36, 230, 176, 0.16);
+}
+
 .icon-button:disabled,
 .primary-button:disabled,
 .secondary-button:disabled,
@@ -625,6 +631,35 @@ p {
 
 .slider-field input {
   width: 100%;
+}
+
+.speed-field {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  color: #9eacc4;
+  font-size: 13px;
+}
+
+.speed-options {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.speed-options button {
+  height: 30px;
+  color: #b8c7df;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.speed-options button.active {
+  color: #eaffff;
+  border-color: rgba(37, 213, 239, 0.44);
+  background: rgba(37, 213, 239, 0.16);
 }
 
 .button-row {

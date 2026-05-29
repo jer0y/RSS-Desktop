@@ -21,7 +21,10 @@ const defaultSettings: AppSettings = {
   margin_right: 18,
   global_refresh_interval_minutes: 15,
   max_items: 80,
+  auto_scroll_speed_percent: 100,
 };
+
+const scrollSpeeds = [50, 75, 100, 125, 150, 200];
 
 export function SettingsWindow() {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
@@ -202,8 +205,8 @@ export function SettingsWindow() {
       <section className="settings-grid">
         <div className="settings-panel">
           <div className="panel-heading">
-            <h2>窗口</h2>
-            <button className="icon-button" title="保存窗口设置" onClick={saveSettings} disabled={busy}>
+            <h2>窗口与滚动</h2>
+            <button className="icon-button" title="保存设置" onClick={saveSettings} disabled={busy}>
               <Save size={16} />
             </button>
           </div>
@@ -225,6 +228,21 @@ export function SettingsWindow() {
               onChange={(event) => updateOpacity(Number(event.target.value))}
             />
           </label>
+          <div className="speed-field">
+            <span>自动滚动速度</span>
+            <div className="speed-options">
+              {scrollSpeeds.map((speed) => (
+                <button
+                  key={speed}
+                  type="button"
+                  className={settings.auto_scroll_speed_percent === speed ? "active" : ""}
+                  onClick={() => setSettings({ ...settings, auto_scroll_speed_percent: speed })}
+                >
+                  {formatSpeed(speed)}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <form className="settings-panel" onSubmit={addFeed}>
@@ -445,10 +463,21 @@ function normalizeSettings(settings: AppSettings): AppSettings {
     margin_right: clamp(settings.margin_right, 0, 200),
     global_refresh_interval_minutes: clamp(settings.global_refresh_interval_minutes, 5, 240),
     max_items: clamp(settings.max_items, 20, 200),
+    auto_scroll_speed_percent: nearestSpeed(settings.auto_scroll_speed_percent),
   };
 }
 
 function clamp(value: number, min: number, max: number) {
   if (Number.isNaN(value)) return min;
   return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function nearestSpeed(value: number) {
+  return scrollSpeeds.reduce((best, speed) =>
+    Math.abs(speed - value) < Math.abs(best - value) ? speed : best,
+  );
+}
+
+function formatSpeed(speed: number) {
+  return `${speed / 100}X`;
 }

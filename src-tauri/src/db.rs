@@ -87,6 +87,8 @@ pub fn get_settings(conn: &Connection) -> Result<AppSettings> {
         global_refresh_interval_minutes: get_i64_setting(conn, "global_refresh_interval_minutes")?
             .unwrap_or(default.global_refresh_interval_minutes),
         max_items: get_i64_setting(conn, "max_items")?.unwrap_or(default.max_items),
+        auto_scroll_speed_percent: get_i64_setting(conn, "auto_scroll_speed_percent")?
+            .unwrap_or(default.auto_scroll_speed_percent),
     }))
 }
 
@@ -112,6 +114,11 @@ pub fn save_settings(conn: &mut Connection, settings: AppSettings) -> Result<App
         settings.global_refresh_interval_minutes,
     )?;
     set_setting(&tx, "max_items", settings.max_items)?;
+    set_setting(
+        &tx,
+        "auto_scroll_speed_percent",
+        settings.auto_scroll_speed_percent,
+    )?;
     tx.commit()?;
     Ok(settings)
 }
@@ -448,6 +455,11 @@ fn ensure_default_settings(conn: &Connection) -> Result<()> {
         settings.global_refresh_interval_minutes,
     )?;
     set_setting_if_missing(conn, "max_items", settings.max_items)?;
+    set_setting_if_missing(
+        conn,
+        "auto_scroll_speed_percent",
+        settings.auto_scroll_speed_percent,
+    )?;
     Ok(())
 }
 
@@ -559,6 +571,7 @@ mod tests {
                 margin_right: 500,
                 global_refresh_interval_minutes: 1,
                 max_items: 500,
+                auto_scroll_speed_percent: 333,
             },
         )
         .unwrap();
@@ -572,6 +585,7 @@ mod tests {
         assert_eq!(saved.margin_right, 200);
         assert_eq!(saved.global_refresh_interval_minutes, 5);
         assert_eq!(saved.max_items, 200);
+        assert_eq!(saved.auto_scroll_speed_percent, 200);
     }
 
     #[test]
@@ -659,6 +673,7 @@ mod tests {
                 margin_right: 18,
                 global_refresh_interval_minutes: 15,
                 max_items: 80,
+                auto_scroll_speed_percent: 100,
             },
         )
         .unwrap();

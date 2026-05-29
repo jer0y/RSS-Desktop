@@ -41,6 +41,7 @@ pub struct AppSettings {
     pub margin_right: i64,
     pub global_refresh_interval_minutes: i64,
     pub max_items: i64,
+    pub auto_scroll_speed_percent: i64,
 }
 
 impl Default for AppSettings {
@@ -55,6 +56,7 @@ impl Default for AppSettings {
             margin_right: 18,
             global_refresh_interval_minutes: 15,
             max_items: 80,
+            auto_scroll_speed_percent: 100,
         }
     }
 }
@@ -138,6 +140,7 @@ pub fn normalize_settings(settings: AppSettings) -> AppSettings {
         margin_right: clamp(settings.margin_right, 0, 200),
         global_refresh_interval_minutes: clamp(settings.global_refresh_interval_minutes, 5, 240),
         max_items: clamp(settings.max_items, 20, 200),
+        auto_scroll_speed_percent: normalize_auto_scroll_speed(settings.auto_scroll_speed_percent),
     }
 }
 
@@ -147,4 +150,12 @@ pub fn normalize_refresh_interval(value: i64) -> i64 {
 
 fn clamp(value: i64, min: i64, max: i64) -> i64 {
     value.max(min).min(max)
+}
+
+fn normalize_auto_scroll_speed(value: i64) -> i64 {
+    const SPEEDS: [i64; 6] = [50, 75, 100, 125, 150, 200];
+    SPEEDS
+        .into_iter()
+        .min_by_key(|speed| (value - speed).abs())
+        .unwrap_or(100)
 }

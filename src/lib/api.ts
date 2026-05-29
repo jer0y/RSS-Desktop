@@ -75,6 +75,7 @@ const mockSettings: AppSettings = {
   margin_right: 18,
   global_refresh_interval_minutes: 15,
   max_items: 80,
+  auto_scroll_speed_percent: 100,
 };
 
 let mockFeeds: Feed[] = [
@@ -151,6 +152,18 @@ let mockItems: Item[] = [
     guid: "demo-103",
     created_at: new Date().toISOString(),
   },
+];
+
+mockItems = [
+  ...mockItems,
+  ...Array.from({ length: 18 }, (_, index) => ({
+    ...mockItems[index % 3],
+    id: 200 + index,
+    title: `${mockItems[index % 3].title} #${index + 1}`,
+    published_at: new Date(Date.now() - 1000 * 60 * (index + 4) * 18).toISOString(),
+    guid: `demo-extra-${index}`,
+    created_at: new Date().toISOString(),
+  })),
 ];
 
 async function mockInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {

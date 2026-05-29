@@ -1,7 +1,8 @@
 import {
   ChevronDown,
   ExternalLink,
-  Maximize2,
+  Pause,
+  Play,
   RefreshCw,
   Settings,
   X,
@@ -22,9 +23,12 @@ export function WidgetWindow() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [hasNewItems, setHasNewItems] = useState(false);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(false);
+  const timelineRef = useRef<HTMLElement | null>(null);
   const pulseTimer = useRef<number | null>(null);
 
   const limit = settings?.max_items ?? 80;
+  const autoScrollPixelsPerSecond = ((settings?.auto_scroll_speed_percent ?? 100) / 100) * 72;
 
   const query = useMemo<ItemQuery>(
     () => ({
@@ -100,11 +104,49 @@ export function WidgetWindow() {
 
   useEffect(() => {
     setOffset(0);
+    timelineRef.current?.scrollTo({ top: 0 });
   }, [feedId]);
 
   useEffect(() => {
     void loadItems(offset > 0);
   }, [loadItems, offset]);
+
+  useEffect(() => {
+    if (!autoScrollEnabled) return;
+
+    let frame = 0;
+    let last = window.performance.now();
+    let scrollPosition = timelineRef.current?.scrollTop ?? 0;
+
+    const step = (now: number) => {
+      const element = timelineRef.current;
+      if (!element) {
+        frame = window.requestAnimationFrame(step);
+        return;
+      }
+
+      const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
+      if (maxScroll <= 1) {
+        setAutoScrollEnabled(false);
+        return;
+      }
+
+      if (element.scrollTop >= maxScroll - 1) {
+        setAutoScrollEnabled(false);
+        return;
+      }
+
+      const elapsed = Math.min(64, now - last) / 1000;
+      scrollPosition = Math.min(maxScroll, scrollPosition + autoScrollPixelsPerSecond * elapsed);
+      element.scrollTop = scrollPosition;
+
+      last = now;
+      frame = window.requestAnimationFrame(step);
+    };
+
+    frame = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(frame);
+  }, [autoScrollEnabled, autoScrollPixelsPerSecond]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -148,6 +190,17 @@ export function WidgetWindow() {
     });
   };
 
+  const toggleAutoScroll = () => {
+    setAutoScrollEnabled((current) => {
+      const next = !current;
+      const element = timelineRef.current;
+      if (next && element && element.scrollTop >= element.scrollHeight - element.clientHeight - 1) {
+        element.scrollTop = 0;
+      }
+      return next;
+    });
+  };
+
   const startWindowDrag = (event: MouseEvent<HTMLElement>) => {
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
@@ -184,8 +237,12 @@ export function WidgetWindow() {
           <button className="icon-button" title="刷新" onClick={refresh} disabled={busy}>
             <RefreshCw size={16} className={busy ? "spin" : ""} />
           </button>
-          <button className="icon-button" title="重新定位窗口" onClick={() => void api.repositionMain()}>
-            <Maximize2 size={16} />
+          <button
+            className={`icon-button ${autoScrollEnabled ? "active" : ""}`}
+            title={autoScrollEnabled ? "暂停自动滚动" : "自动滚动"}
+            onClick={toggleAutoScroll}
+          >
+            {autoScrollEnabled ? <Pause size={16} /> : <Play size={16} />}
           </button>
           <button className="icon-button" title="设置" onClick={() => void api.openSettings()}>
             <Settings size={16} />
@@ -198,7 +255,7 @@ export function WidgetWindow() {
 
       {error && <div className="error-strip">{error}</div>}
 
-      <section className="timeline" aria-label="RSS 条目">
+      <section className="timeline" aria-label="RSS 条目" ref={timelineRef}>
         {items.length === 0 && !busy ? (
           <EmptyState feeds={feeds.length} />
         ) : (
@@ -212,7 +269,7 @@ export function WidgetWindow() {
             />
           ))
         )}
-        {hasMore && (
+        {hasMore && !autoScrollEnabled && (
           <button className="timeline-load-more" onClick={() => setOffset((current) => current + limit)} disabled={busy}>
             加载更多
           </button>
