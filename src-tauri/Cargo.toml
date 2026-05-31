@@ -1,6 +1,6 @@
 [package]
 name = "rss-desktop-widget"
-version = "0.2.6"
+version = "0.2.7"
 description = "A transparent RSS desktop widget for Windows and macOS"
 authors = ["RSS Desktop"]
 edition = "2021"
@@ -23,7 +23,7 @@ rusqlite = { version = "0.39", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
 tokio = { version = "1", features = ["time"] }
@@ -33,7 +33,7 @@ url = "2"
 windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3", default-features = false, features = ["NSWindow", "objc2-core-foundation"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSColor", "NSWindow", "objc2-core-foundation"] }
 
 [dev-dependencies]
 tempfile = "3"

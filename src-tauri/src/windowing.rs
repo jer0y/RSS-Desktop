@@ -13,6 +13,7 @@ pub fn position_main_window(window: &WebviewWindow, settings: &AppSettings) -> R
         settings.window_width as f64,
         settings.window_height as f64,
     ))?;
+    prepare_transparent_window(window)?;
     apply_window_opacity(window, settings.opacity)?;
 
     let (x, y) = match (settings.window_x, settings.window_y) {
@@ -136,6 +137,16 @@ fn keep_window_on_bottom(window: &WebviewWindow) -> Result<()> {
     send_window_to_bottom(window)
 }
 
+#[cfg(target_os = "macos")]
+fn prepare_transparent_window(window: &WebviewWindow) -> Result<()> {
+    configure_macos_window(window, None)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn prepare_transparent_window(_window: &WebviewWindow) -> Result<()> {
+    Ok(())
+}
+
 #[cfg(windows)]
 fn send_window_to_bottom(window: &WebviewWindow) -> Result<()> {
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -184,12 +195,23 @@ fn apply_window_opacity(window: &WebviewWindow, opacity: i64) -> Result<()> {
 
 #[cfg(target_os = "macos")]
 fn apply_window_opacity(window: &WebviewWindow, opacity: i64) -> Result<()> {
-    use objc2_app_kit::NSWindow;
-
     let alpha = opacity.clamp(45, 100) as f64 / 100.0;
+    configure_macos_window(window, Some(alpha))
+}
+
+#[cfg(target_os = "macos")]
+fn configure_macos_window(window: &WebviewWindow, alpha: Option<f64>) -> Result<()> {
+    use objc2_app_kit::{NSColor, NSWindow};
+
     window.with_webview(move |webview| unsafe {
         let ns_window: &NSWindow = &*webview.ns_window().cast();
-        ns_window.setAlphaValue(alpha);
+        let clear = NSColor::clearColor();
+        ns_window.setOpaque(false);
+        ns_window.setBackgroundColor(Some(&clear));
+
+        if let Some(alpha) = alpha {
+            ns_window.setAlphaValue(alpha);
+        }
     })?;
 
     Ok(())

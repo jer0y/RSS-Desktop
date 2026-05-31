@@ -15,6 +15,7 @@
   --panel-strong: rgba(23, 31, 52, 0.92);
   --border: rgba(141, 164, 211, 0.18);
   --danger: #ff6f82;
+  --window-radius: 18px;
 }
 
 * {
@@ -31,6 +32,15 @@ body,
   margin: 0;
   background: transparent;
   overflow: hidden;
+}
+
+html,
+body {
+  border-radius: var(--window-radius);
+}
+
+#root {
+  border-radius: inherit;
 }
 
 body {
@@ -66,8 +76,8 @@ button {
       rgb(12 17 31 / calc(var(--panel-opacity, 0.86) * 0.2))
     ),
     var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 18px;
+  border: 0;
+  border-radius: var(--window-radius);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(22px) saturate(130%);
 }
