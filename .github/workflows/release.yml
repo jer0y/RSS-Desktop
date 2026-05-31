@@ -10,8 +10,28 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: windows-latest
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+            tauri-args: --target x86_64-pc-windows-msvc
+            release-arch: x64
+          - name: macos-arm64
+            os: macos-latest
+            rust-target: aarch64-apple-darwin
+            tauri-args: --target aarch64-apple-darwin
+            release-arch: arm64
+          - name: macos-x64
+            os: macos-15-intel
+            rust-target: x86_64-apple-darwin
+            tauri-args: --target x86_64-apple-darwin
+            release-arch: x64
 
     steps:
       - name: Checkout
@@ -25,41 +45,86 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
 
       - name: Install dependencies
         run: npm ci
 
       - name: Test frontend and Rust
-        shell: pwsh
         run: |
           npm run build
-          npm run check:rust
-          npm run test:rust
+          npm run check:rust -- --target ${{ matrix.rust-target }}
+          npm run test:rust -- --target ${{ matrix.rust-target }}
 
       - name: Build Tauri bundles
-        run: npm run tauri:build
+        run: npm run tauri:build -- ${{ matrix.tauri-args }}
 
-      - name: Collect release assets
+      - name: Collect Windows release assets
+        if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          RUST_TARGET: ${{ matrix.rust-target }}
         run: |
           $version = (Get-Content package.json | ConvertFrom-Json).version
+          $targetDir = "src-tauri/target/$env:RUST_TARGET/release"
           $assetDir = "release-assets"
           New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
 
-          Copy-Item "src-tauri/target/release/rss-desktop-widget.exe" "$assetDir/RSS-Desktop-$version-x64.exe"
-          Copy-Item "src-tauri/target/release/bundle/nsis/RSS Desktop Widget_${version}_x64-setup.exe" "$assetDir/RSS-Desktop-$version-x64-setup.exe"
-          Copy-Item "src-tauri/target/release/bundle/msi/RSS Desktop Widget_${version}_x64_en-US.msi" "$assetDir/RSS-Desktop-$version-x64.msi"
+          Copy-Item "$targetDir/rss-desktop-widget.exe" "$assetDir/RSS-Desktop-$version-x64.exe"
+
+          $nsis = Get-ChildItem "$targetDir/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
+          $msi = Get-ChildItem "$targetDir/bundle/msi" -Filter "*.msi" | Select-Object -First 1
+          Copy-Item $nsis.FullName "$assetDir/RSS-Desktop-$version-x64-setup.exe"
+          Copy-Item $msi.FullName "$assetDir/RSS-Desktop-$version-x64.msi"
 
           Compress-Archive `
             -Path "$assetDir/RSS-Desktop-$version-x64.exe", "README.md" `
             -DestinationPath "$assetDir/RSS-Desktop-$version-portable-x64.zip" `
             -Force
 
+      - name: Collect macOS release assets
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          RUST_TARGET: ${{ matrix.rust-target }}
+          RELEASE_ARCH: ${{ matrix.release-arch }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          target_dir="src-tauri/target/${RUST_TARGET}/release"
+          asset_dir="release-assets"
+          mkdir -p "$asset_dir"
+
+          dmg_file="$(find "$target_dir/bundle/dmg" -maxdepth 1 -name '*.dmg' -print -quit)"
+          if [ -z "$dmg_file" ]; then
+            echo "No DMG found in $target_dir/bundle/dmg" >&2
+            exit 1
+          fi
+
+          cp "$dmg_file" "$asset_dir/RSS-Desktop-$version-macos-$RELEASE_ARCH.dmg"
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.name }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: release-*
+          merge-multiple: true
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: |
-            release-assets/*.exe
-            release-assets/*.msi
-            release-assets/*.zip
+          files: release-assets/*

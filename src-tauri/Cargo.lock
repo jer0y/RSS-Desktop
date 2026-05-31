@@ -3047,6 +3047,7 @@ dependencies = [
  "chrono",
  "feed-rs",
  "html2text",
+ "objc2-app-kit",
  "reqwest 0.12.28",
  "rusqlite",
  "serde",

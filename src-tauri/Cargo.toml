@@ -1,7 +1,7 @@
 [package]
 name = "rss-desktop-widget"
 version = "0.2.5"
-description = "A transparent RSS desktop widget for Windows 11"
+description = "A transparent RSS desktop widget for Windows and macOS"
 authors = ["RSS Desktop"]
 edition = "2021"
 rust-version = "1.77.2"
@@ -28,7 +28,12 @@ tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
 tokio = { version = "1", features = ["time"] }
 url = "2"
+
+[target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSWindow", "objc2-core-foundation"] }
 
 [dev-dependencies]
 tempfile = "3"

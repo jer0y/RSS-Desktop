@@ -139,7 +139,7 @@ fn keep_window_on_bottom(window: &WebviewWindow) -> Result<()> {
 #[cfg(windows)]
 fn send_window_to_bottom(window: &WebviewWindow) -> Result<()> {
     use windows::Win32::UI::WindowsAndMessaging::{
-        SetWindowPos, HWND_BOTTOM, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOOWNERZORDER,
+        SetWindowPos, HWND_BOTTOM, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
     };
 
     let hwnd = window.hwnd()?;
@@ -182,7 +182,20 @@ fn apply_window_opacity(window: &WebviewWindow, opacity: i64) -> Result<()> {
     Ok(())
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+fn apply_window_opacity(window: &WebviewWindow, opacity: i64) -> Result<()> {
+    use objc2_app_kit::NSWindow;
+
+    let alpha = opacity.clamp(45, 100) as f64 / 100.0;
+    window.with_webview(move |webview| unsafe {
+        let ns_window: &NSWindow = &*webview.ns_window().cast();
+        ns_window.setAlphaValue(alpha);
+    })?;
+
+    Ok(())
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 fn apply_window_opacity(_window: &WebviewWindow, _opacity: i64) -> Result<()> {
     Ok(())
 }

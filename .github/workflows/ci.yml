@@ -8,7 +8,32 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+            tauri-args: --target x86_64-pc-windows-msvc
+            artifact-path: |
+              src-tauri/target/x86_64-pc-windows-msvc/release/rss-desktop-widget.exe
+              src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+              src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+          - name: macos-arm64
+            os: macos-latest
+            rust-target: aarch64-apple-darwin
+            tauri-args: --target aarch64-apple-darwin
+            artifact-path: |
+              src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          - name: macos-x64
+            os: macos-15-intel
+            rust-target: x86_64-apple-darwin
+            tauri-args: --target x86_64-apple-darwin
+            artifact-path: |
+              src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
 
     steps:
       - name: Checkout
@@ -22,6 +47,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
 
       - name: Install dependencies
         run: npm ci
@@ -30,7 +57,17 @@ jobs:
         run: npm run build
 
       - name: Check Rust
-        run: npm run check:rust
+        run: npm run check:rust -- --target ${{ matrix.rust-target }}
 
       - name: Test Rust
-        run: npm run test:rust
+        run: npm run test:rust -- --target ${{ matrix.rust-target }}
+
+      - name: Build Tauri bundles
+        run: npm run tauri:build -- ${{ matrix.tauri-args }}
+
+      - name: Upload bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-bundles
+          path: ${{ matrix.artifact-path }}
+          if-no-files-found: error

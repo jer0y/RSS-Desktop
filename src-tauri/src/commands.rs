@@ -39,8 +39,21 @@ pub fn save_settings(
 }
 
 #[tauri::command]
-pub fn set_main_window_opacity(app: AppHandle, opacity: i64) -> CommandResult<()> {
-    windowing::apply_main_window_opacity(&app, opacity).map_err(to_command_error)
+pub fn set_main_window_opacity(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    opacity: i64,
+) -> CommandResult<()> {
+    windowing::apply_main_window_opacity(&app, opacity).map_err(to_command_error)?;
+
+    let mut settings = {
+        let conn = state.conn().map_err(to_command_error)?;
+        db::get_settings(&conn).map_err(to_command_error)?
+    };
+    settings.opacity = opacity.clamp(45, 100);
+    let _ = app.emit("settings_updated", &settings);
+
+    Ok(())
 }
 
 #[tauri::command]
