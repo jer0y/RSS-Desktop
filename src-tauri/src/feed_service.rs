@@ -9,6 +9,7 @@ use crate::models::{ParsedFeed, ParsedItem};
 const MAX_FEED_BYTES: u64 = 2_000_000;
 const MAX_CONTENT_CHARS: usize = 100_000;
 const MAX_TEXT_CHARS: usize = 20_000;
+const MAX_FETCH_ATTEMPTS: u32 = 3;
 
 pub fn validate_http_url(raw: &str) -> Result<String> {
     let trimmed = raw.trim();
@@ -21,31 +22,15 @@ pub fn validate_http_url(raw: &str) -> Result<String> {
 
 pub async fn fetch_feed(client: &Client, raw_url: &str) -> Result<ParsedFeed> {
     let url = validate_http_url(raw_url)?;
-    let response = send_with_retries(client, &url).await?;
-
-    let status = response.status();
-    if !status.is_success() {
-        return Err(anyhow::anyhow!("订阅源返回 HTTP {}", status.as_u16()));
-    }
-
-    if let Some(length) = response.content_length() {
-        if length > MAX_FEED_BYTES {
-            return Err(anyhow::anyhow!("订阅源内容超过 2MB 限制"));
-        }
-    }
-
-    let bytes = response.bytes().await.context("读取订阅源内容失败")?;
-    if bytes.len() as u64 > MAX_FEED_BYTES {
-        return Err(anyhow::anyhow!("订阅源内容超过 2MB 限制"));
-    }
+    let bytes = fetch_bytes_with_retries(client, &url).await?;
 
     parse_feed(&url, &bytes)
 }
 
-async fn send_with_retries(client: &Client, url: &str) -> Result<reqwest::Response> {
-    let mut last_error = None;
+async fn fetch_bytes_with_retries(client: &Client, url: &str) -> Result<Vec<u8>> {
+    let mut last_error = "未知网络错误".to_string();
 
-    for attempt in 1..=3 {
+    for attempt in 1..=MAX_FETCH_ATTEMPTS {
         let result = client
             .get(url)
             .header(
@@ -56,20 +41,51 @@ async fn send_with_retries(client: &Client, url: &str) -> Result<reqwest::Respon
             .await;
 
         match result {
-            Ok(response) => return Ok(response),
-            Err(error) => {
-                last_error = Some(error);
-                if attempt < 3 {
-                    tokio::time::sleep(std::time::Duration::from_millis(400 * attempt)).await;
+            Ok(response) => {
+                let status = response.status();
+                if !status.is_success() {
+                    last_error = format!("订阅源返回 HTTP {}", status.as_u16());
+                } else if let Some(length) = response.content_length() {
+                    if length > MAX_FEED_BYTES {
+                        return Err(anyhow::anyhow!("订阅源内容超过 2MB 限制"));
+                    }
+
+                    match response.bytes().await {
+                        Ok(bytes) if bytes.len() as u64 <= MAX_FEED_BYTES => {
+                            return Ok(bytes.to_vec());
+                        }
+                        Ok(_) => return Err(anyhow::anyhow!("订阅源内容超过 2MB 限制")),
+                        Err(error) => {
+                            last_error = format!("读取订阅源内容失败：{error}");
+                        }
+                    }
+                } else {
+                    match response.bytes().await {
+                        Ok(bytes) if bytes.len() as u64 <= MAX_FEED_BYTES => {
+                            return Ok(bytes.to_vec());
+                        }
+                        Ok(_) => return Err(anyhow::anyhow!("订阅源内容超过 2MB 限制")),
+                        Err(error) => {
+                            last_error = format!("读取订阅源内容失败：{error}");
+                        }
+                    }
                 }
             }
+            Err(error) => {
+                last_error = error.to_string();
+            }
+        }
+
+        if attempt < MAX_FETCH_ATTEMPTS {
+            tokio::time::sleep(retry_delay_for_attempt(attempt)).await;
         }
     }
 
-    let error = last_error
-        .map(|error| error.to_string())
-        .unwrap_or_else(|| "未知网络错误".to_string());
-    Err(anyhow::anyhow!("请求订阅源失败：{url}；{error}"))
+    Err(anyhow::anyhow!("请求订阅源失败：{url}；{last_error}"))
+}
+
+fn retry_delay_for_attempt(attempt: u32) -> std::time::Duration {
+    std::time::Duration::from_millis(400 * attempt as u64)
 }
 
 pub fn parse_feed(source_url: &str, bytes: &[u8]) -> Result<ParsedFeed> {

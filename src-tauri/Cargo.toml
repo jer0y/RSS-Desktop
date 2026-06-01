@@ -1,6 +1,6 @@
 [package]
 name = "rss-desktop-widget"
-version = "0.2.7"
+version = "0.2.8"
 description = "A transparent RSS desktop widget for Windows and macOS"
 authors = ["RSS Desktop"]
 edition = "2021"
@@ -18,7 +18,7 @@ anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 feed-rs = "2.3"
 html2text = "0.17"
-reqwest = { version = "0.12", default-features = false, features = ["brotli", "deflate", "gzip", "native-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["brotli", "deflate", "gzip", "native-tls", "system-proxy"] }
 rusqlite = { version = "0.39", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
