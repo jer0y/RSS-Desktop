@@ -146,6 +146,10 @@ Windows 可能会将图标折叠到任务栏右下角的隐藏图标区域。点
 - 应用只解析 feed 中自带的 `content` / `description`，不会额外抓取原文网页。
 - 刷新任务默认顺序执行，避免多个订阅源同时拉取造成资源峰值。
 
+## 友情链接
+欢迎在站内分享对这个项目的新奇想法
+- [Linux.do](https://linux.do)
+
 ## License
 
 This project is licensed under the terms of the [LICENSE](LICENSE).
